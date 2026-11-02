@@ -1,7 +1,6 @@
 """High-level order acceptance and stock reservation."""
 from dataclasses import dataclass, field
 from .promotions import apply_promotions, calculate_service_fee
-from .shipping import delivery_estimate
 
 @dataclass
 class Line:
@@ -26,15 +25,16 @@ def calculate_invoice(basket: Basket, delivery='pickup', loyalty='standard'):
             'total': discounted + handling_fee}
 
 def reserve_items(basket: Basket, stock: dict[str, int]):
-    reserved = []
+    required = {}
     for line in basket.lines:
         if line.quantity <= 0:
             raise ValueError('Invalid quantity')
-        available = stock.get(line.sku, 0)
-        if available < line.quantity:
+        required[line.sku] = required.get(line.sku, 0) + line.quantity
+    for sku, quantity in required.items():
+        if stock.get(sku, 0) < quantity:
             return False
-        stock[line.sku] = available - line.quantity
-        reserved.append((line.sku, line.quantity))
+    for sku, quantity in required.items():
+        stock[sku] -= quantity
     return True
 
 def refund_amount(invoice: dict, delivered: bool, restocking: bool):
